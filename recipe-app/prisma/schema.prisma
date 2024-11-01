@@ -1,0 +1,25 @@
+
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+model User {
+  id       String  @id @default(uuid())
+  email    String  @unique
+  password String
+  Recipe   Recipe[] // One-to-many relation with Recipe
+}
+
+model Recipe {
+  id       Int     @id @default(autoincrement())
+  apiId    String  @unique
+  title    String
+  category String
+  userId   String  // Change this to String to match User id type
+  user     User    @relation(fields: [userId], references: [id]) // Corrected relation
+}
+
