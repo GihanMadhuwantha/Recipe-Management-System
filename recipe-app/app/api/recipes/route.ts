@@ -1,27 +1,35 @@
 import axios from "axios";
-import { NextResponse } from "next/server";
+import { NextRequest, NextResponse } from "next/server";
 
-interface Category {
-  idCategory: string;
-  strCategory: string;
-  strCategoryThumb: string;
-  strCategoryDescription: string;
+interface Recipe {
+  idMeal: string;
+  strMeal: string;
+  strMealThumb: string;
 }
 
-interface RecipeApiResponse {
-  categories: Category[];
+interface RecipesApiResponse {
+  meals: Recipe[];
 }
 
-export async function GET() {
+export async function GET(req: NextRequest) {
+  const category = req.nextUrl.searchParams.get("category");
+
+  if (!category) {
+    return NextResponse.json(
+      { error: "Category is required" },
+      { status: 400 }
+    );
+  }
+
   try {
-    const response = await axios.get<RecipeApiResponse>(
-      "https://www.themealdb.com/api/json/v1/1/categories.php"
+    const response = await axios.get<RecipesApiResponse>(
+      `https://www.themealdb.com/api/json/v1/1/filter.php?c=${category}`
     );
     return NextResponse.json(response.data);
   // eslint-disable-next-line @typescript-eslint/no-unused-vars
   } catch (error) {
     return NextResponse.json(
-      { error: "Failed to fetch recipes" },
+      { error: "Failed to fetch recipes for the category" },
       { status: 500 }
     );
   }

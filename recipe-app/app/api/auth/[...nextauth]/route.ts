@@ -1,13 +1,11 @@
-// app/api/auth/[...nextauth]/route.ts
-
 import NextAuth, { NextAuthOptions } from "next-auth";
 import CredentialsProvider from "next-auth/providers/credentials";
 import { PrismaClient } from "@prisma/client";
-import bcrypt from "bcryptjs";
+import { compare } from "bcryptjs";
 
 const prisma = new PrismaClient();
 
-const authOptions: NextAuthOptions = {
+export const authOptions: NextAuthOptions = {
   providers: [
     CredentialsProvider({
       name: "Credentials",
@@ -16,38 +14,62 @@ const authOptions: NextAuthOptions = {
         password: { label: "Password", type: "password" },
       },
       async authorize(credentials) {
-        if (!credentials?.email || !credentials?.password) return null;
+        if (!credentials?.email || !credentials?.password) {
+          throw new Error("Email and password required");
+        }
 
         const user = await prisma.user.findUnique({
           where: { email: credentials.email },
         });
 
-        // Validate user password
-        if (user && bcrypt.compareSync(credentials.password, user.password)) {
-          return { id: user.id, email: user.email };
+        if (!user) {
+          throw new Error("User not found");
         }
 
-        return null;
+        const isPasswordValid = await compare(
+          credentials.password,
+          user.password
+        );
+
+        if (!isPasswordValid) {
+          throw new Error("Invalid password");
+        }
+
+        return {
+          id: user.id,
+          email: user.email,
+          firstName: user.firstName,
+          lastName: user.lastName,
+        };
       },
     }),
   ],
-  session: { strategy: "jwt" },
+  pages: {
+    signIn: "/login",
+    error: "/login",
+  },
   callbacks: {
     async jwt({ token, user }) {
-      if (user) token.id = user.id;
+      if (user) {
+        token.id = user.id;
+        token.email = user.email;
+      }
       return token;
     },
     async session({ session, token }) {
-      session.user = { ...session.user, id: token.id };
+      if (token) {
+        session.user = {
+          id: token.id as string,
+          email: token.email as string,
+          firstName: token.firstName as string,
+          lastName: token.lastName as string,
+        };
+      }
       return session;
     },
   },
-  pages: {
-    signIn: "/login", // Define custom login page
-    error: "/login",  // Error redirect to login
-  },
+  secret: process.env.NEXTAUTH_SECRET,
 };
 
 const handler = NextAuth(authOptions);
-
 export { handler as GET, handler as POST };
